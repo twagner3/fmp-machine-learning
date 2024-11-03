@@ -1,6 +1,6 @@
 module Tree where
 
-type Attribute = Int
+type Attribute = String
 
 type Threshold = Double
 
