@@ -17,8 +17,10 @@ common warnings
 executable fmp-machine-learning
     import:           warnings
     main-is:          Main.hs
-    -- other-modules:
+    other-modules:    Reader
     -- other-extensions:
     build-depends:    base ^>=4.17.2.1
-    hs-source-dirs:   app
+    hs-source-dirs:   
+        app
+        src
     default-language: GHC2021
