@@ -1,19 +1,21 @@
 module Decision where
 
-import Data.List ()
-import Tree
+giniImpurity :: ((Int, Int), (Int, Int)) -> Double
+giniImpurity ((ly, ln), (ry, rn)) =
+  let total = fromIntegral (ly + ln + ry + rn)
+      countL = fromIntegral (ly + ln)
+      countR = fromIntegral (ry + rn)
+   in (countL / total) * giniImpurityLeaf (ly, ln) + (countR / total) * giniImpurityLeaf (ry, rn)
 
-giniImpurity :: Tree -> Double
-giniImpurity (Leaf yes no) =
-  let total = fromIntegral (totalNum (Leaf yes no))
-   in 1 - (fromIntegral yes / total) ** 2 - (fromIntegral no / total) ** 2
-giniImpurity (Node _ _ left right) =
-  let total = fromIntegral (totalNum (Node "" 0 left right))
-   in (fromIntegral (totalNum left) / total) * giniImpurity left + (fromIntegral (totalNum right) / total) * giniImpurity right
+giniImpurityLeaf :: (Int, Int) -> Double
+giniImpurityLeaf (y, n) =
+  let total = fromIntegral (y + n)
+   in 1 - (fromIntegral y / total) ** 2 - (fromIntegral n / total) ** 2
 
-totalNum :: Tree -> Int
-totalNum (Leaf yes no) = yes + no
-totalNum (Node _ _ left right) = totalNum left + totalNum right
+--------------
+
+splitValuesOfRow :: Int -> [[Int]] -> [Double]
+splitValuesOfRow row xs = splitValues (removeDuplicates (selectRow row xs))
 
 selectRow :: Int -> [[Int]] -> [Int]
 selectRow _ [] = []
@@ -30,5 +32,41 @@ splitValues [] = []
 splitValues [_] = []
 splitValues (x : xs : xss) = (fromIntegral x + fromIntegral xs) / 2 : splitValues (xs : xss)
 
-splitValuesOfRow :: Int -> [[Int]] -> [Double]
-splitValuesOfRow i xs = splitValues (removeDuplicates (selectRow i xs))
+--------------
+
+countByThresholdsList :: Int -> [Double] -> [[Int]] -> [((Int, Int), (Int, Int))]
+countByThresholdsList row thresholds xs = map (\threshold -> countByThreshold row threshold xs) thresholds
+
+countByThreshold :: Int -> Double -> [[Int]] -> ((Int, Int), (Int, Int))
+countByThreshold i threshold xs =
+  let aboveThreshold = filter (\row -> fromIntegral (row !! i) > threshold) xs
+      belowThreshold = filter (\row -> fromIntegral (row !! i) <= threshold) xs
+   in (countLastColumn aboveThreshold, countLastColumn belowThreshold)
+
+countLastColumn :: [[Int]] -> (Int, Int)
+countLastColumn =
+  foldr
+    ( \x (ones, zeros) ->
+        if last x == 0
+          then (ones, zeros + 1)
+          else (ones + 1, zeros)
+    )
+    (0, 0)
+
+--------------
+
+bestThresholdAndGini :: Int -> [[Int]] -> (Double, Double)
+bestThresholdAndGini row table = findMin (thresholdAndGini row table)
+  where 
+    findMin [] = (0, 1)
+    findMin [x] = x
+    findMin (x : xs) = let minRest = findMin xs
+                       in if snd x < snd minRest then x else minRest
+
+thresholdAndGini :: Int -> [[Int]] -> [(Double, Double)]
+thresholdAndGini row xs =
+  let thresholds = splitValuesOfRow row xs
+      count = countByThresholdsList row thresholds xs
+      giniImpurityList = map giniImpurity count
+   in zip thresholds giniImpurityList
+
