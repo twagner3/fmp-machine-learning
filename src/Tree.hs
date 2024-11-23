@@ -1,4 +1,5 @@
 module Tree where
+import Data.Foldable (find)
 
 type Attr = String
 
@@ -57,3 +58,38 @@ myTree =
       ),
       ([Order "age" Tree.LT 51, Order "age" Tree.GT 29], Leaf 4)
     ]
+
+
+classify :: DecisionTree -> Object -> [Class]
+classify (Leaf c) _ = [c]
+classify (Node branches) obj =
+  concatMap (\(constraints, subtree) ->
+               if satisfies constraints obj
+               then classify subtree obj
+               else []
+            ) branches
+
+satisfies :: Constraints -> Object -> Bool
+satisfies constraints obj = all (`satisfiesConstraint` obj) constraints
+
+satisfiesConstraint :: Restriction -> Object -> Bool
+satisfiesConstraint (Equal attr val) obj =
+  case lookupAttr attr obj of
+    Just (AStr _ strVal) -> strVal == val
+    _ -> True
+satisfiesConstraint (Order attr ord val) obj =
+  case lookupAttr attr obj of
+    Just (AInt _ intVal) -> compareWithOrdering ord intVal val
+    _ -> True
+
+lookupAttr :: Attr -> Object -> Maybe Feature
+lookupAttr attr = find (\feature -> getAttr feature == attr)
+
+getAttr :: Feature -> Attr
+getAttr (AInt attr _) = attr
+getAttr (AStr attr _) = attr
+
+compareWithOrdering :: Tree.Ordering -> Int -> Int -> Bool
+compareWithOrdering Tree.LT x y = x < y
+compareWithOrdering Tree.GT x y = x > y
+compareWithOrdering Tree.EQ x y = x == y
