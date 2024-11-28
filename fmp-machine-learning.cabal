@@ -21,6 +21,8 @@ executable fmp-machine-learning
         Reader
         Tree
         Decision
+        Attribute
+        Object
     -- other-extensions:
     build-depends:    base ^>=4.17.2.1
     hs-source-dirs:   

@@ -1,11 +1,8 @@
 module Tree where
+
 import Data.Foldable (find)
-
-type Attr = String
-
-data Feature = AInt Attr Int | AStr Attr String
-
-type Object = [Feature]
+import Attribute
+import Object
 
 data Ordering = LT | GT | EQ
 
