@@ -13,12 +13,12 @@ split str = go str []
       | otherwise = go xs (x : acc)
 
 
-readFileToListOfLists :: FilePath -> IO [Object]
-readFileToListOfLists filePath = do
+readObjectsFromFile :: FilePath -> IO [Object]
+readObjectsFromFile filePath = do
   contents <- readFile filePath
-  let linesOfStrings = lines contents
-  let header = split (head linesOfStrings) :: [Attr]
-  let values = map split (tail linesOfStrings)
+  let linesOfFile = lines contents
+  let header = split (head linesOfFile) :: [Attr]
+  let values = map split (tail linesOfFile)
   let objects = map (convertRowToObject header) values
   return objects
 

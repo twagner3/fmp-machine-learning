@@ -56,6 +56,7 @@ myTree =
       ([Order "age" Tree.LT 51, Order "age" Tree.GT 29], Leaf 4)
     ]
 
+---------------------------------------------------
 
 classify :: DecisionTree -> Object -> [Class]
 classify (Leaf c) _ = [c]
@@ -90,3 +91,5 @@ compareWithOrdering :: Tree.Ordering -> Int -> Int -> Bool
 compareWithOrdering Tree.LT x y = x < y
 compareWithOrdering Tree.GT x y = x > y
 compareWithOrdering Tree.EQ x y = x == y
+
+------------------------------------------------
