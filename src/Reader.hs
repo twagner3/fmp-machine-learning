@@ -1,7 +1,7 @@
 module Reader where
 
+import Constraint
 import Object
-import Attribute
 import Text.Read (readMaybe)
 
 split :: String -> [String]
@@ -11,7 +11,6 @@ split str = go str []
     go (x : xs) acc
       | x == ',' = reverse acc : go xs []
       | otherwise = go xs (x : acc)
-
 
 readObjectsFromFile :: FilePath -> IO [Object]
 readObjectsFromFile filePath = do
@@ -29,4 +28,4 @@ convertValue :: Attr -> String -> Feature
 convertValue attr value =
   case readMaybe value :: Maybe Int of
     Just intVal -> AInt attr intVal
-    Nothing     -> AStr attr value
+    Nothing -> AStr attr value

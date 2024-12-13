@@ -1,14 +1,8 @@
 module Tree where
 
+import Constraint
 import Data.Foldable (find)
-import Attribute
 import Object
-
-data Ordering = LT | GT | EQ
-
-data Restriction = Equal Attr String | Order Attr Tree.Ordering Int
-
-type Constraints = [Restriction]
 
 type Class = Int
 
@@ -29,31 +23,22 @@ instance Show DecisionTree where
       indent :: Int -> String
       indent n = replicate (n * 2) ' '
 
-instance Show Tree.Ordering where
-  show Tree.LT = "<"
-  show Tree.GT = ">"
-  show Tree.EQ = "="
-
-instance Show Restriction where
-  show (Equal attr val) = attr ++ " = " ++ show val
-  show (Order attr ord val) = attr ++ " " ++ show ord ++ " " ++ show val
-
 myTree :: DecisionTree
 myTree =
   Node
-    [ ( [Order "age" Tree.LT 30, Equal "gender" "female"],
+    [ ( [Order "age" Constraint.LT 30, Equal "gender" "female"],
         Node
-          [ ([Order "age" Tree.LT 21], Leaf 0),
-            ([Order "age" Tree.GT 20], Leaf 1)
+          [ ([Order "age" Constraint.LT 21], Leaf 0),
+            ([Order "age" Constraint.GT 20], Leaf 1)
           ]
       ),
-      ( [Order "age" Tree.LT 50],
+      ( [Order "age" Constraint.LT 50],
         Node
           [ ([Equal "gender" "male"], Leaf 2),
             ([Equal "gender" "female"], Leaf 3)
           ]
       ),
-      ([Order "age" Tree.LT 51, Order "age" Tree.GT 29], Leaf 4)
+      ([Order "age" Constraint.LT 51, Order "age" Constraint.GT 29], Leaf 4)
     ]
 
 ---------------------------------------------------
@@ -61,11 +46,13 @@ myTree =
 classify :: DecisionTree -> Object -> [Class]
 classify (Leaf c) _ = [c]
 classify (Node branches) obj =
-  concatMap (\(constraints, subtree) ->
-               if satisfies constraints obj
-               then classify subtree obj
-               else []
-            ) branches
+  concatMap
+    ( \(constraints, subtree) ->
+        if satisfies constraints obj
+          then classify subtree obj
+          else []
+    )
+    branches
 
 satisfies :: Constraints -> Object -> Bool
 satisfies constraints obj = all (`satisfiesConstraint` obj) constraints
@@ -87,9 +74,9 @@ getAttr :: Feature -> Attr
 getAttr (AInt attr _) = attr
 getAttr (AStr attr _) = attr
 
-compareWithOrdering :: Tree.Ordering -> Int -> Int -> Bool
-compareWithOrdering Tree.LT x y = x < y
-compareWithOrdering Tree.GT x y = x > y
-compareWithOrdering Tree.EQ x y = x == y
+compareWithOrdering :: Constraint.Ordering -> Int -> Int -> Bool
+compareWithOrdering Constraint.LT x y = x < y
+compareWithOrdering Constraint.GT x y = x > y
+compareWithOrdering Constraint.EQ x y = x == y
 
 ------------------------------------------------

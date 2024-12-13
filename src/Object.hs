@@ -1,6 +1,6 @@
 module Object where
 
-import Attribute
+import Constraint
 
 data Feature = AInt Attr Int | AStr Attr String
 
