@@ -1,7 +1,6 @@
 module Reader where
 
-import Constraint
-import Object
+import Data
 import Text.Read (readMaybe)
 
 split :: String -> [String]
@@ -12,20 +11,27 @@ split str = go str []
       | x == ',' = reverse acc : go xs []
       | otherwise = go xs (x : acc)
 
-readObjectsFromFile :: FilePath -> IO [Object]
+readObjectsFromFile :: FilePath -> IO [LabeledObject]
 readObjectsFromFile filePath = do
   contents <- readFile filePath
   let linesOfFile = lines contents
   let header = split (head linesOfFile) :: [Attr]
   let values = map split (tail linesOfFile)
-  let objects = map (convertRowToObject header) values
+  let objects = map (convertRowToLabeledObject header) values
   return objects
+
+convertRowToLabeledObject :: [Attr] -> [String] -> LabeledObject
+convertRowToLabeledObject header values =
+  let objectValues = init values
+      label = last values
+      object = convertRowToObject header objectValues
+   in (object, label)
 
 convertRowToObject :: [Attr] -> [String] -> Object
 convertRowToObject = zipWith convertValue
 
 convertValue :: Attr -> String -> Feature
 convertValue attr value =
-  case readMaybe value :: Maybe Int of
-    Just intVal -> AInt attr intVal
+  case readMaybe value :: Maybe Double of
+    Just doubleVal -> ADouble attr doubleVal
     Nothing -> AStr attr value

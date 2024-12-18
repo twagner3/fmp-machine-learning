@@ -1,72 +1,55 @@
 module Decision where
 
-giniImpurity :: ((Int, Int), (Int, Int)) -> Double
-giniImpurity ((ly, ln), (ry, rn)) =
-  let total = fromIntegral (ly + ln + ry + rn)
-      countL = fromIntegral (ly + ln)
-      countR = fromIntegral (ry + rn)
-   in (countL / total) * giniImpurityLeaf (ly, ln) + (countR / total) * giniImpurityLeaf (ry, rn)
+import Data
+import Data.List (minimumBy)
+import Data.Ord (comparing)
 
-giniImpurityLeaf :: (Int, Int) -> Double
-giniImpurityLeaf (y, n) =
-  let total = fromIntegral (y + n)
-   in 1 - (fromIntegral y / total) ** 2 - (fromIntegral n / total) ** 2
+decision :: [LabeledObject] -> Restriction
+decision table =
+  let objects = map fst table
+      attributes = distinctAttr objects
+      restrictions = map (attributeRestriction table) attributes
+      bestRestriction = minRestriction restrictions
+   in fst bestRestriction
 
---------------
+distinctAttr :: [Object] -> [Attr]
+distinctAttr objects = uniqueHelper [attr | object <- objects, attr <- getAttr object] []
 
-splitValuesOfRow :: Int -> [[Int]] -> [Double]
-splitValuesOfRow row xs = splitValues (removeDuplicates (selectRow row xs))
+attributeRestriction :: [LabeledObject] -> Attr -> (Restriction, Double)
+attributeRestriction table attribute =
+  let restrictions = map createRestrictions (distinctValues (map fst table) attribute)
+      gini_values = map (calculateGini table) restrictions
+   in minRestriction (zip restrictions gini_values)
 
-selectRow :: Int -> [[Int]] -> [Int]
-selectRow _ [] = []
-selectRow i (x : xs) = x !! i : selectRow i xs
+distinctValues :: [Object] -> Attr -> [Feature]
+distinctValues table attribute = uniqueHelper (concatMap (filter (\f -> extractAttr f == attribute)) table) []
 
-removeDuplicates :: [Int] -> [Int]
-removeDuplicates [] = []
-removeDuplicates (x : xs)
-  | x `elem` xs = removeDuplicates xs
-  | otherwise = x : removeDuplicates xs
+createRestrictions :: Feature -> Restriction
+createRestrictions (ADouble name value) = Order name Data.LTE value
+createRestrictions (AStr name value) = Equal name value
 
-splitValues :: [Int] -> [Double]
-splitValues [] = []
-splitValues [_] = []
-splitValues (x : xs : xss) = (fromIntegral x + fromIntegral xs) / 2 : splitValues (xs : xss)
+calculateGini :: [LabeledObject] -> Restriction -> Double
+calculateGini table restriction =
+  let (left, right) = splitTable table restriction
 
---------------
+      gini :: [LabeledObject] -> Double
+      gini group =
+        let total = fromIntegral (length group)
+            labels = map snd group
+            uniqueLabels = uniqueHelper labels []
+            labelCounts = map (\lbl -> length (filter (== lbl) labels)) uniqueLabels
+            probabilities = map (\count -> fromIntegral count / total) labelCounts
+         in 1 - sum (map (\p -> p * p) probabilities)
 
-countByThresholdsList :: Int -> [Double] -> [[Int]] -> [((Int, Int), (Int, Int))]
-countByThresholdsList row thresholds xs = map (\threshold -> countByThreshold row threshold xs) thresholds
+      leftWeight = fromIntegral (length left) / fromIntegral (length table)
+      rightWeight = fromIntegral (length right) / fromIntegral (length table)
+   in leftWeight * gini left + rightWeight * gini right
 
-countByThreshold :: Int -> Double -> [[Int]] -> ((Int, Int), (Int, Int))
-countByThreshold i threshold xs =
-  let aboveThreshold = filter (\row -> fromIntegral (row !! i) > threshold) xs
-      belowThreshold = filter (\row -> fromIntegral (row !! i) <= threshold) xs
-   in (countLastColumn aboveThreshold, countLastColumn belowThreshold)
+minRestriction :: [(Restriction, Double)] -> (Restriction, Double)
+minRestriction = minimumBy (comparing snd)
 
-countLastColumn :: [[Int]] -> (Int, Int)
-countLastColumn =
-  foldr
-    ( \x (ones, zeros) ->
-        if last x == 0
-          then (ones, zeros + 1)
-          else (ones + 1, zeros)
-    )
-    (0, 0)
-
---------------
-
-bestThresholdAndGini :: Int -> [[Int]] -> (Double, Double)
-bestThresholdAndGini row table = findMin (thresholdAndGini row table)
-  where 
-    findMin [] = (0, 1)
-    findMin [x] = x
-    findMin (x : xs) = let minRest = findMin xs
-                       in if snd x < snd minRest then x else minRest
-
-thresholdAndGini :: Int -> [[Int]] -> [(Double, Double)]
-thresholdAndGini row xs =
-  let thresholds = splitValuesOfRow row xs
-      count = countByThresholdsList row thresholds xs
-      giniImpurityList = map giniImpurity count
-   in zip thresholds giniImpurityList
-
+uniqueHelper :: (Eq a) => [a] -> [a] -> [a]
+uniqueHelper [] seen = seen
+uniqueHelper (x : xs) seen
+  | x `elem` seen = uniqueHelper xs seen
+  | otherwise = uniqueHelper xs (seen ++ [x])

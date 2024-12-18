@@ -1,82 +1,83 @@
 module Tree where
 
-import Constraint
-import Data.Foldable (find)
-import Object
+import Data
+import Data.List (group, maximumBy, sort)
+import Data.Maybe (isJust)
+import Data.Ord (comparing)
+import Decision (decision)
+import Text.Read (readMaybe)
+import Debug.Trace (trace)
 
-type Class = Int
-
-data DecisionTree = Node [(Constraints, DecisionTree)] | Leaf Class
+data DecisionTree = Node Constraints (DecisionTree, DecisionTree) | Leaf Label
 
 instance Show DecisionTree where
   show = showTree 0
     where
       showTree :: Int -> DecisionTree -> String
-      showTree depth (Leaf cls) = indent depth ++ "Leaf " ++ show cls ++ "\n"
-      showTree depth (Node branches) =
-        indent depth ++ "Node\n" ++ concatMap (showBranch depth) branches
-
-      showBranch :: Int -> (Constraints, DecisionTree) -> String
-      showBranch depth (constraints, subtree) =
-        indent (depth + 1) ++ "Branch " ++ show constraints ++ "\n" ++ showTree (depth + 2) subtree
+      showTree depth (Leaf label) =
+        indent depth ++ "Leaf: " ++ show label ++ "\n"
+      showTree depth (Node constraints (left, right)) =
+        indent depth
+          ++ "Node: "
+          ++ show constraints
+          ++ "\n"
+          ++ showTree (depth + 1) left
+          ++ showTree (depth + 1) right
 
       indent :: Int -> String
       indent n = replicate (n * 2) ' '
 
-myTree :: DecisionTree
-myTree =
-  Node
-    [ ( [Order "age" Constraint.LT 30, Equal "gender" "female"],
-        Node
-          [ ([Order "age" Constraint.LT 21], Leaf 0),
-            ([Order "age" Constraint.GT 20], Leaf 1)
-          ]
-      ),
-      ( [Order "age" Constraint.LT 50],
-        Node
-          [ ([Equal "gender" "male"], Leaf 2),
-            ([Equal "gender" "female"], Leaf 3)
-          ]
-      ),
-      ([Order "age" Constraint.LT 51, Order "age" Constraint.GT 29], Leaf 4)
-    ]
-
 ---------------------------------------------------
 
-classify :: DecisionTree -> Object -> [Class]
-classify (Leaf c) _ = [c]
-classify (Node branches) obj =
-  concatMap
-    ( \(constraints, subtree) ->
-        if satisfies constraints obj
-          then classify subtree obj
-          else []
-    )
-    branches
-
-satisfies :: Constraints -> Object -> Bool
-satisfies constraints obj = all (`satisfiesConstraint` obj) constraints
-
-satisfiesConstraint :: Restriction -> Object -> Bool
-satisfiesConstraint (Equal attr val) obj =
-  case lookupAttr attr obj of
-    Just (AStr _ strVal) -> strVal == val
-    _ -> True
-satisfiesConstraint (Order attr ord val) obj =
-  case lookupAttr attr obj of
-    Just (AInt _ intVal) -> compareWithOrdering ord intVal val
-    _ -> True
-
-lookupAttr :: Attr -> Object -> Maybe Feature
-lookupAttr attr = find (\feature -> getAttr feature == attr)
-
-getAttr :: Feature -> Attr
-getAttr (AInt attr _) = attr
-getAttr (AStr attr _) = attr
-
-compareWithOrdering :: Constraint.Ordering -> Int -> Int -> Bool
-compareWithOrdering Constraint.LT x y = x < y
-compareWithOrdering Constraint.GT x y = x > y
-compareWithOrdering Constraint.EQ x y = x == y
+classify :: DecisionTree -> Object -> Label
+classify (Leaf c) _ = c
+classify (Node constraints branches) obj =
+  if satisfies constraints obj
+    then classify (snd branches) obj
+    else classify (fst branches) obj
 
 ------------------------------------------------
+
+build :: [LabeledObject] -> DecisionTree
+build table
+  | null table = error "Cannot build tree from an empty table"
+  | length table < 5 = Leaf (mostFrequentOrAverageLabel table)
+  | allSameLabels table = Leaf (classOf (head table))
+  | otherwise =
+      let bestSplit = decision table
+          (left, right) = splitTable table bestSplit
+       in 
+        if null left || null right
+          then Leaf (classOf (head table))
+          else Node [bestSplit] (build left, build right)
+
+mostFrequentOrAverageLabel :: [LabeledObject] -> Label
+mostFrequentOrAverageLabel table =
+  let labels = map snd table
+   in if allIsNumeric labels
+        then show (averageDouble (map readNumeric labels))
+        else mostFrequentLabel labels
+
+allIsNumeric :: [Label] -> Bool
+allIsNumeric = all isNumeric
+  where
+    isNumeric label = isJust (readMaybe label :: Maybe Int) || isJust (readMaybe label :: Maybe Double)
+
+readNumeric :: Label -> Double
+readNumeric label = case readMaybe label :: Maybe Double of
+  Just n -> n
+  Nothing -> error "Label is not a number"
+
+averageDouble :: [Double] -> Double
+averageDouble nums = sum nums / fromIntegral (length nums)
+
+mostFrequentLabel :: [Label] -> Label
+mostFrequentLabel labels =
+  let grouped = group (sort labels)
+      mostCommon = maximumBy (comparing length) grouped
+   in head mostCommon
+
+allSameLabels :: [LabeledObject] -> Bool
+allSameLabels table =
+  let labels = map snd table
+   in all (== head labels) labels
