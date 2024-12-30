@@ -1,7 +1,7 @@
 module Main where
 
 import Reader
-import Tree
+import VFDT
 
 main :: IO ()
 main = do
@@ -11,7 +11,7 @@ main = do
   labeledObjects <- readObjectsFromFile "data/exampleTraining2.csv"
   testingObjects <- readObjectsFromFile "data/exampleTesting2.csv"
 
-  let tree = build labeledObjects
+  let tree = buildMultiple (take 225 labeledObjects)
 
   let predictions = map (classify tree . fst) testingObjects
 
