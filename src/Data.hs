@@ -1,6 +1,7 @@
 module Data where
 
 import Data.Foldable (find)
+import Data.List (nub)
 
 type Attr = String
 
@@ -105,3 +106,13 @@ splitTable table restriction =
 classOf :: LabeledObject -> Label
 classOf = snd
 
+extractUniqueAttrs :: [LabeledObject] -> [Attr]
+extractUniqueAttrs labeledObjects =
+  nub [attr | (object, _) <- labeledObjects, attr <- getAttr object]
+
+getAttrOfRestriction :: Restriction -> Attr
+getAttrOfRestriction (Equal attr _) = attr
+getAttrOfRestriction (Order attr _ _) = attr
+
+removeAttr :: [Attr] -> Attr -> [Attr]
+removeAttr attrs target = filter (/= target) attrs
