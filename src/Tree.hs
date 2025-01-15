@@ -6,7 +6,6 @@ import Data.Maybe (isJust)
 import Data.Ord (comparing)
 import Decision (decision)
 import Text.Read (readMaybe)
-import Debug.Trace (trace)
 
 data DecisionTree = Node Constraints (DecisionTree, DecisionTree) | Leaf Label
 

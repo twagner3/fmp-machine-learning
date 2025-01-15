@@ -1,6 +1,7 @@
 module Data where
 
 import Data.Foldable (find)
+import Data.List (nub)
 
 type Attr = String
 
@@ -8,7 +9,23 @@ type Attr = String
 
 data Ordering = LT | GT | EQ | LTE | GTE
 
+instance Eq Data.Ordering where
+  Data.LT == Data.LT = True
+  Data.GT == Data.GT = True
+  Data.EQ == Data.EQ = True
+  Data.LTE == Data.LTE = True
+  Data.GTE == Data.GTE = True
+  _ == _ = False
+
+
 data Restriction = Equal Attr String | Order Attr Data.Ordering Double
+
+instance Eq Restriction where
+  (Equal attr1 str1) == (Equal attr2 str2) =
+    attr1 == attr2 && str1 == str2
+  (Order attr1 ord1 dbl1) == (Order attr2 ord2 dbl2) =
+    attr1 == attr2 && ord1 == ord2 && dbl1 == dbl2
+  _ == _ = False
 
 type Constraints = [Restriction]
 
@@ -31,6 +48,14 @@ instance Eq Feature where
   (ADouble attr1 value1) == (ADouble attr2 value2) = attr1 == attr2 && value1 == value2
   (AStr attr1 value1) == (AStr attr2 value2) = attr1 == attr2 && value1 == value2
   _ == _ = False
+
+instance Ord Feature where
+    compare (ADouble attr1 val1) (ADouble attr2 val2) =
+        compare attr1 attr2 <> compare val1 val2
+    compare (AStr attr1 str1) (AStr attr2 str2) =
+        compare attr1 attr2 <> compare str1 str2
+    compare (ADouble _ _) (AStr _ _) = Prelude.LT
+    compare (AStr _ _) (ADouble _ _) = Prelude.GT  
 
 type Object = [Feature]
 
@@ -80,3 +105,14 @@ splitTable table restriction =
 
 classOf :: LabeledObject -> Label
 classOf = snd
+
+extractUniqueAttrs :: [LabeledObject] -> [Attr]
+extractUniqueAttrs labeledObjects =
+  nub [attr | (object, _) <- labeledObjects, attr <- getAttr object]
+
+getAttrOfRestriction :: Restriction -> Attr
+getAttrOfRestriction (Equal attr _) = attr
+getAttrOfRestriction (Order attr _ _) = attr
+
+removeAttr :: [Attr] -> Attr -> [Attr]
+removeAttr attrs target = filter (/= target) attrs

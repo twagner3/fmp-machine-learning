@@ -1,21 +1,23 @@
 module Main where
 
 import Reader
-import Tree
+import VFDT
 
 main :: IO ()
 main = do
   putStrLn "Implementierung eines Machine-Learning-Systems mit Entscheidungsbaeumen"
   putStrLn "von Tim Wagner"
 
-  labeledObjects <- readObjectsFromFile "data/exampleTraining2.csv"
-  testingObjects <- readObjectsFromFile "data/exampleTesting2.csv"
+  labeledObjects <- readObjectsFromFile "data/daten.csv"
+  testingObjects <- readObjectsFromFile "data/daten.csv"
 
-  let tree = build labeledObjects
+  let tree = buildNew (take 20000 labeledObjects)
 
-  let predictions = map (classify tree . fst) testingObjects
+  let predictions = map (classify tree . fst) (take 20000 testingObjects)
 
-  let expected = map snd testingObjects
+  print tree
+
+  let expected = map snd (take 20000 testingObjects)
   let res = zip expected predictions
 
   let incorrect = filter (uncurry (/=)) res
