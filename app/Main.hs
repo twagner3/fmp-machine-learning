@@ -2,23 +2,22 @@ module Main where
 
 import Reader
 import VFDT
-import Data (LabeledObject)
 
 main :: IO ()
 main = do
   putStrLn "Implementierung eines Machine-Learning-Systems mit Entscheidungsbaeumen"
   putStrLn "von Tim Wagner"
 
-  labeledObjects <- readObjectsFromFile "data/exampleTraining2.csv"
-  testingObjects <- readObjectsFromFile "data/exampleTraining2.csv"
+  labeledObjects <- readObjectsFromFile "data/daten.csv"
+  testingObjects <- readObjectsFromFile "data/daten.csv"
 
-  let tree = buildNew  labeledObjects
+  let tree = buildNew (take 20000 labeledObjects)
 
-  let predictions = map (classify tree . fst) testingObjects
+  let predictions = map (classify tree . fst) (take 20000 testingObjects)
 
   print tree
 
-  let expected = map snd testingObjects
+  let expected = map snd (take 20000 testingObjects)
   let res = zip expected predictions
 
   let incorrect = filter (uncurry (/=)) res
@@ -29,6 +28,3 @@ main = do
   let accuracy = fromIntegral (length expected - length incorrect) / fromIntegral (length expected)
 
   print ("Accuracy of the model: " ++ show (accuracy :: Double))
-
-isDead :: LabeledObject -> Bool
-isDead (_, label) = label == "Dead"

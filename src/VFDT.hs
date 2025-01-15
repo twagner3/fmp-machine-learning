@@ -3,9 +3,9 @@ module VFDT where
 import Data
 import Data.List (maximumBy)
 import Data.Map qualified as Map
+import Data.Maybe (catMaybes, isJust)
 import Data.Ord (comparing)
 import Debug.Trace (trace)
-import Data.Maybe (isJust)
 import Text.Read (readMaybe)
 
 type XNode = [Attr]
@@ -30,6 +30,7 @@ instance Show DecisionTree where
       indent n = replicate (n * 2) ' '
 
 type Statistics = Map.Map Label Int
+
 type NTable = Map.Map Feature Statistics
 
 ----------------------------------------
@@ -43,9 +44,9 @@ hoeffdingBound r n delta = sqrt ((fromIntegral r * fromIntegral r * log (1 / del
 splitNTable :: NTable -> Restriction -> (NTable, NTable)
 splitNTable nTable restriction =
   let (restricted, others) = Map.partitionWithKey (\feature _ -> matchesAttribute restriction feature) nTable
-      satisfies = Map.filterWithKey (\feature _ -> satisfiesConstraint restriction [feature]) restricted
+      satisfiesR = Map.filterWithKey (\feature _ -> satisfiesConstraint restriction [feature]) restricted
       notSatisfies = Map.filterWithKey (\feature _ -> not (satisfiesConstraint restriction [feature])) restricted
-   in (Map.union satisfies others, Map.union notSatisfies others)
+   in (Map.union satisfiesR others, Map.union notSatisfies others)
 
 incrementInNTable :: LabeledObject -> NTable -> NTable
 incrementInNTable (object, objLabel) nTable = foldl (updateFeature objLabel) nTable object
@@ -83,11 +84,12 @@ reEvalSplit (Node n x restriction (left, right) table) =
       epsilon = hoeffdingBound (distinctLabelsCount table) n 0.05
    in if enoughDatePoints n && snd xA - informationGainForRestriction table xC > epsilon
         then
-          if fst xA == getAttrOfRestriction nullRestriction
+          if fst xA == nullRestriction
             then trace ("Kill subtree") $ Leaf n x "null" table
             else
-              if fst xA /= getAttrOfRestriction restriction
-                then trace ("ReEvalSplit changed split") $ replaceWithInternal (Leaf n x "split" table) (fst xA)
+              if fst xA /= restriction
+                then -- trace ("ReEvalSplit changed split") $
+                  replaceWithInternal (Leaf n x "split" table) (fst xA)
                 else Node n x restriction (left, right) table
         else Node n x restriction (left, right) table
 reEvalSplit leaf = leaf
@@ -95,28 +97,27 @@ reEvalSplit leaf = leaf
 attemptSplit :: DecisionTree -> DecisionTree
 attemptSplit (Leaf n x l table) =
   if enoughDatePoints n && not (allEntriesHaveSameLabel table)
-    then 
+    then
       let gAttributes = informationGainForAttrs x table
           xA = maximumBy (comparing snd) gAttributes
           epsilon = hoeffdingBound (distinctLabelsCount table) n 0.05
        in -- trace("Result " ++ show epsilon ++ show (xA)) $
-        if snd xA - informationGainForRestriction table nullRestriction > epsilon && fst xA /= getAttrOfRestriction nullRestriction
-            then trace ("Attempt split added split") $ replaceWithInternal (Leaf n x l table) (fst xA)
+          if snd xA - informationGainForRestriction table nullRestriction > epsilon && fst xA /= nullRestriction
+            then -- trace ("Attempt split added split") $
+              replaceWithInternal (Leaf n x l table) (fst xA)
             else Leaf n x (majorityLabel table) table
     else Leaf n x (majorityLabel table) table
 attemptSplit node = node
 
-replaceWithInternal :: DecisionTree -> Attr -> DecisionTree
-replaceWithInternal (Leaf n x l table) attr =
-  let split = snd (findBestSplitWithAttr table attr)
-      leftAfter = Leaf 0 x l emptyTable
+replaceWithInternal :: DecisionTree -> Restriction -> DecisionTree
+replaceWithInternal (Leaf n x l table) restriction =
+  let leftAfter = Leaf 0 x l emptyTable
       rightAfter = Leaf 0 x l emptyTable
-   in Node n x split (leftAfter, rightAfter) table
-replaceWithInternal (Node n x _ _ table) attr =
-  let split = snd (findBestSplitWithAttr table attr)
-      leftAfter = Leaf 0 x "null" emptyTable
+   in Node n x restriction (leftAfter, rightAfter) table
+replaceWithInternal (Node n x _ _ table) restriction =
+  let leftAfter = Leaf 0 x "null" emptyTable
       rightAfter = Leaf 0 x "null" emptyTable
-   in Node n x split (leftAfter, rightAfter) table
+   in Node n x restriction (leftAfter, rightAfter) table
 
 nullRestriction :: Restriction
 nullRestriction = Order "null" Data.LT 0
@@ -146,8 +147,6 @@ majorityLabel table =
         then show (averageDouble (map readNumeric labels))
         else fst $ maximumBy (comparing snd) $ Map.toList combinedSums
 
-
-
 classify :: DecisionTree -> Object -> Label
 classify (Leaf _ _ c _) _ = c
 classify (Node _ _ constraints branches _) obj =
@@ -164,10 +163,6 @@ matchesAttribute (Order attr _ _) (ADouble featureAttr _) =
   attr == featureAttr
 matchesAttribute (Order attr _ _) (AStr featureAttr _) =
   attr == featureAttr
-
-findBestSplitWithAttr :: NTable -> Attr -> (Double, Restriction)
-findBestSplitWithAttr table requiredAttr =
-  maximumBy (comparing fst) [(informationGainForRestriction table restriction, restriction) | restriction <- possibleRestrictionsWithAttr table requiredAttr]
 
 allEntriesHaveSameLabel :: NTable -> Bool
 allEntriesHaveSameLabel ntable =
@@ -195,15 +190,15 @@ informationGainForRestriction nTable restriction =
         then originalEntropy - (leftWeight * leftEntropy + rightWeight * rightEntropy)
         else 0.0
 
-informationGainForAttr :: Attr -> NTable -> Double
+informationGainForAttr :: Attr -> NTable -> Maybe (Restriction, Double)
 informationGainForAttr attr nTable =
   let restrictions = possibleRestrictionsWithAttr nTable attr
-      gains = [informationGainForRestriction nTable r | r <- restrictions]
-   in if not (null gains) then maximum gains else 0.0
+      gains = [(r, informationGainForRestriction nTable r) | r <- restrictions]
+   in if not (null gains) then Just (maximumBy (\(_, g1) (_, g2) -> compare g1 g2) gains) else Nothing
 
-informationGainForAttrs :: [Attr] -> NTable -> [(Attr, Double)]
+informationGainForAttrs :: [Attr] -> NTable -> [(Restriction, Double)]
 informationGainForAttrs attrs nTable =
-  [(attr, informationGainForAttr attr nTable) | attr <- attrs]
+  catMaybes [informationGainForAttr attr nTable | attr <- attrs]
 
 totalEntropy :: NTable -> Double
 totalEntropy nTable =
