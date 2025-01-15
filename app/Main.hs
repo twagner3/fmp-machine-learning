@@ -1,5 +1,6 @@
 module Main where
 
+import Data (LabeledObject)
 import Reader
 import VFDT
 
@@ -9,22 +10,29 @@ main = do
   putStrLn "von Tim Wagner"
 
   labeledObjects <- readObjectsFromFile "data/daten.csv"
-  testingObjects <- readObjectsFromFile "data/daten.csv"
 
-  let tree = buildNew (take 20000 labeledObjects)
+  let tree = buildNew (take 1 labeledObjects)
 
-  let predictions = map (classify tree . fst) (take 20000 testingObjects)
+  processBatches tree labeledObjects 50
 
-  print tree
+processBatches :: DecisionTree -> [LabeledObject] -> Int -> IO ()
+processBatches _ [] _ = putStrLn "Verarbeitung abgeschlossen."
+processBatches tree objects batchSize = do
+  let (currentBatch, remainingObjects) = splitAt batchSize objects
 
-  let expected = map snd (take 20000 testingObjects)
-  let res = zip expected predictions
+  let updatedTree = foldl learn tree currentBatch
 
-  let incorrect = filter (uncurry (/=)) res
+  let acc = accuracy updatedTree currentBatch
+  putStrLn $ "Aktuelle Genauigkeit: " ++ show acc
 
-  print ("Total number of testing instances: " ++ show (length expected))
-  print ("Number of incorrect predictions: " ++ show (length incorrect))
+  appendFile "accuracy_log.txt" (show acc ++ "\n")
 
-  let accuracy = fromIntegral (length expected - length incorrect) / fromIntegral (length expected)
+  processBatches updatedTree remainingObjects batchSize
 
-  print ("Accuracy of the model: " ++ show (accuracy :: Double))
+accuracy :: DecisionTree -> [LabeledObject] -> Double
+accuracy tree objects =
+  let predictions = map (classify tree . fst) objects
+      expected = map snd objects
+      res = zip expected predictions
+      incorrect = filter (uncurry (/=)) res
+   in fromIntegral (length expected - length incorrect) / fromIntegral (length expected)
