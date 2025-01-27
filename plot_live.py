@@ -9,8 +9,18 @@ plt.ion()
 fig, ax = plt.subplots(figsize=(10, 6))
 
 def read_accuracies(file_path):
+    accuracies = []
     with open(file_path, 'r') as file:
-        return [float(line.strip()) for line in file]
+        for line in file:
+            # Prüfen, ob die Zeile mit "Aktuelle Genauigkeit:" beginnt
+            if line.startswith("Aktuelle Genauigkeit:"):
+                try:
+                    # Extrahiere den Wert nach "Aktuelle Genauigkeit: "
+                    accuracy = float(line.split(":")[1].strip())
+                    accuracies.append(accuracy)
+                except ValueError:
+                    pass  # Falls der Wert nicht konvertiert werden kann, ignorieren
+    return accuracies
 
 def update_plot():
     accuracies = read_accuracies(file_path)

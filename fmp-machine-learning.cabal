@@ -23,10 +23,12 @@ executable fmp-machine-learning
         Decision
         Data
         VFDT
+        Stream
     -- other-extensions:
     build-depends:    
         base ^>=4.17.2.1,
-        containers       
+        containers,
+        random >= 1.2, 
     hs-source-dirs:   
         app
         src

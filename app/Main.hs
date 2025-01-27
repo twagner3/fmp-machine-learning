@@ -2,6 +2,7 @@ module Main where
 
 import Data (LabeledObject)
 import Reader
+import Stream
 import VFDT
 
 main :: IO ()
@@ -9,7 +10,8 @@ main = do
   putStrLn "Implementierung eines Machine-Learning-Systems mit Entscheidungsbaeumen"
   putStrLn "von Tim Wagner"
 
-  labeledObjects <- readObjectsFromFile "data/daten.csv"
+  -- labeledObjects <- readObjectsFromFile "data/daten.csv"
+  labeledObjects <- generateInfiniteData 20000
 
   let tree = buildNew (take 1 labeledObjects)
 
@@ -24,8 +26,6 @@ processBatches tree objects batchSize = do
 
   let acc = accuracy updatedTree currentBatch
   putStrLn $ "Aktuelle Genauigkeit: " ++ show acc
-
-  appendFile "accuracy_log.txt" (show acc ++ "\n")
 
   processBatches updatedTree remainingObjects batchSize
 
