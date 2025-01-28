@@ -207,12 +207,6 @@ totalEntropy nTable =
       probs = map (\count -> let p = fromIntegral count / totalCount in p * logBase 2 p) labelCounts
    in -sum probs
 
-entropyForFeature :: Statistics -> Double
-entropyForFeature labelCounts =
-  let total = fromIntegral $ sum $ Map.elems labelCounts
-      probs = [fromIntegral count / total | count <- Map.elems labelCounts]
-   in -sum [p * logBase 2 p | p <- probs, p > 0]
-
 possibleRestrictionsWithAttr :: NTable -> Attr -> [Restriction]
 possibleRestrictionsWithAttr table requiredAttr =
   [Order attr Data.LTE value | (ADouble attr value) <- Map.keys table, attr == requiredAttr]
