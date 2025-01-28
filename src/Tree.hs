@@ -28,6 +28,7 @@ instance Show DecisionTree where
 
 ---------------------------------------------------
 
+-- Classifies an object using a Decision Tree by recursively traversing it based on constraints.
 classify :: DecisionTree -> Object -> Label
 classify (Leaf c) _ = c
 classify (Node constraints branches) obj =
@@ -37,6 +38,7 @@ classify (Node constraints branches) obj =
 
 ------------------------------------------------
 
+-- Builds a Decision Tree from a table of labeled objects, determining splits and base cases.
 build :: [LabeledObject] -> DecisionTree
 build table
   | null table = error "Cannot build tree from an empty table"
@@ -50,6 +52,7 @@ build table
           then Leaf (classOf (head table))
           else Node [bestSplit] (build left, build right)
 
+-- Determines the most frequent label or the average label if numeric.
 mostFrequentOrAverageLabel :: [LabeledObject] -> Label
 mostFrequentOrAverageLabel table =
   let labels = map snd table
@@ -57,11 +60,13 @@ mostFrequentOrAverageLabel table =
         then show (averageDouble (map readNumeric labels))
         else mostFrequentLabel labels
 
+-- Checks if all labels in the list are numeric.
 allIsNumeric :: [Label] -> Bool
 allIsNumeric = all isNumeric
   where
     isNumeric label = isJust (readMaybe label :: Maybe Int) || isJust (readMaybe label :: Maybe Double)
 
+-- Parses a numeric label into a Double; throws an error if parsing fails.
 readNumeric :: Label -> Double
 readNumeric label = case readMaybe label :: Maybe Double of
   Just n -> n
@@ -70,6 +75,7 @@ readNumeric label = case readMaybe label :: Maybe Double of
 averageDouble :: [Double] -> Double
 averageDouble nums = sum nums / fromIntegral (length nums)
 
+-- Finds the most frequent label in a list of labels.
 mostFrequentLabel :: [Label] -> Label
 mostFrequentLabel labels =
   let grouped = group (sort labels)
